@@ -25,7 +25,8 @@ const Show = sequelize.define('Show', {
 const Seat = sequelize.define('Seat', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   seat_number: { type: DataTypes.STRING, allowNull: false },
-  is_booked: { type: DataTypes.BOOLEAN, defaultValue: false },
+  status: { type: DataTypes.ENUM('AVAILABLE', 'HELD', 'BOOKED'), defaultValue: 'AVAILABLE' },
+  held_until: { type: DataTypes.DATE, allowNull: true },
 }, { timestamps: true });
 
 const Booking = sequelize.define('Booking', {

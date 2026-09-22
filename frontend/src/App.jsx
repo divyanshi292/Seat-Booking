@@ -1,204 +1,182 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast';
+
+import Movies from './pages/Movies';
+import SeatSelection from './pages/SeatSelection';
+import Checkout from './pages/Checkout';
+import MyTickets from './pages/MyTickets';
+import Ticket from './pages/Ticket';
 
 function App() {
-  const [movie, setMovie] = useState(null);
-  const [show, setShow] = useState(null);
-  const [seats, setSeats] = useState([]);
-  const [selectedSeats, setSelectedSeats] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [authMode, setAuthMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [authError, setAuthError] = useState('');
 
-  // Fetch initial data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch Movies
-        const moviesRes = await fetch('http://localhost:5000/api/movies');
-        const moviesData = await moviesRes.json();
-        
-        if (moviesData.length > 0) {
-          setMovie(moviesData[0]); // Just pick the first movie for demo
-          
-          if (moviesData[0].Shows.length > 0) {
-            const firstShow = moviesData[0].Shows[0];
-            setShow(firstShow);
-            
-            // Fetch Seats for this show
-            const seatsRes = await fetch(`http://localhost:5000/api/shows/${firstShow.id}/seats`);
-            const seatsData = await seatsRes.json();
-            setSeats(seatsData);
-          }
-        }
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  const toggleSeat = (seatId) => {
-    setSelectedSeats((prev) =>
-      prev.includes(seatId) ? prev.filter((id) => id !== seatId) : [...prev, seatId]
-    );
-  };
-
-  const handleBooking = async () => {
-    if (selectedSeats.length === 0) return;
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    const endpoint = authMode === 'login' ? '/login' : '/register';
+    const body = authMode === 'login' ? { email, password } : { name, email, password };
 
     try {
-      const amount = (selectedSeats.length * parseFloat(show.price_per_seat)) + 2.50;
-      
-      const res = await fetch('http://localhost:5000/api/book', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          seatIds: selectedSeats,
-          totalAmount: amount
-        })
+        body: JSON.stringify(body)
       });
-
+      
+      const data = await res.json();
+      
       if (res.ok) {
-        alert('Booking Confirmed! Enjoy the movie.');
-        // Refresh seats
-        const seatsRes = await fetch(`http://localhost:5000/api/shows/${show.id}/seats`);
-        const seatsData = await seatsRes.json();
-        setSeats(seatsData);
-        setSelectedSeats([]); // clear selection
+        setUser(data.user);
+        toast.success(`Welcome back, ${data.user.name}!`);
+      } else {
+        setAuthError(data.error || 'Authentication failed. Please check your credentials.');
       }
     } catch (err) {
-      console.error("Booking error:", err);
-      alert('Failed to book seats.');
+      setAuthError('Network error. Please try again later.');
     }
   };
 
-  if (loading) {
-    return <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">Loading...</div>;
+  if (!user) {
+    return (
+      <div 
+        className="min-h-screen bg-black flex flex-col selection:bg-[#E50914] selection:text-white font-sans relative"
+        style={{
+          backgroundImage: "linear-gradient(to top, rgba(0, 0, 0, 0.8) 0, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.8) 100%), url('/assets/hero.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundBlendMode: 'multiply'
+        }}
+      >
+        <Toaster toastOptions={{ style: { background: '#333', color: '#fff' } }} />
+        
+        <div className="px-8 py-6">
+          <span className="text-[#E50914] text-4xl font-bold tracking-tighter uppercase">Cineflix</span>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="bg-black/80 p-12 rounded-lg w-full max-w-[450px]">
+            <h1 className="text-3xl font-bold text-white mb-8">{authMode === 'login' ? 'Sign In' : 'Sign Up'}</h1>
+
+            <form onSubmit={handleAuth} className="space-y-4">
+              {authMode === 'register' && (
+                <div>
+                  <input 
+                    type="text" 
+                    placeholder="Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-[#333] rounded px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E50914] transition-all"
+                    required 
+                  />
+                </div>
+              )}
+              <div>
+                <input 
+                  type="email" 
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setAuthError('');
+                  }}
+                  className="w-full bg-[#333] rounded px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E50914] transition-all"
+                  required 
+                />
+              </div>
+              <div>
+                <input 
+                  type="password" 
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setAuthError('');
+                  }}
+                  className="w-full bg-[#333] rounded px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E50914] transition-all"
+                  required 
+                />
+              </div>
+              
+              {authError && (
+                <div className="text-[#e87c03] text-sm mt-2 flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M8 15A7 7 0 1 0 8 1a7 7 0 0 0 0 14ZM8 4a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 8 4Zm0 8.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+                  </svg>
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              <button 
+                type="submit"
+                className="w-full bg-[#E50914] hover:bg-[#f40612] text-white font-bold py-3 rounded transition-colors mt-8"
+              >
+                {authMode === 'login' ? 'Sign In' : 'Sign Up'}
+              </button>
+            </form>
+
+            <p className="text-gray-400 mt-12 text-sm">
+              {authMode === 'login' ? "New to Cineflix? " : "Already subscribed? "}
+              <button 
+                className="text-white hover:underline font-medium"
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'register' : 'login');
+                  setAuthError('');
+                }}
+              >
+                {authMode === 'login' ? 'Sign up now.' : 'Sign in.'}
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-rose-500 selection:text-white pb-12">
-      {/* Navbar */}
-      <nav className="flex items-center justify-between px-8 py-5 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-2 cursor-pointer">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-rose-500 to-orange-400 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-rose-500/20">
-            S
-          </div>
-          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 tracking-tight">
-            SeatBooker
-          </span>
-        </div>
-        <div className="flex gap-6 text-sm font-medium">
-          <a href="#" className="hover:text-rose-400 transition-colors">Movies</a>
-          <a href="#" className="hover:text-rose-400 transition-colors">Events</a>
-          <a href="#" className="hover:text-rose-400 transition-colors">Profile</a>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-6 py-12 flex flex-col md:flex-row gap-12">
-        {/* Left Section - Seat Map */}
-        <div className="flex-1 space-y-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">{movie ? movie.title : 'No Movie Available'}</h1>
-            <p className="text-slate-400">PVR Cinemas, Screen 2 • {show ? new Date(show.show_time).toLocaleString() : ''}</p>
-          </div>
-          
-          {/* Screen curve */}
-          <div className="flex flex-col items-center mt-12 mb-8">
-            <div className="w-full max-w-md h-12 border-t-4 border-rose-500/30 rounded-t-[50%] blur-[1px]"></div>
-            <p className="text-xs text-slate-500 uppercase tracking-widest mt-2 font-semibold">Screen This Way</p>
-          </div>
-
-          {/* Seat Grid */}
-          <div className="grid grid-cols-8 gap-3 max-w-lg mx-auto">
-            {seats.map((seat) => {
-              const isSelected = selectedSeats.includes(seat.id);
-              const isOccupied = seat.is_booked;
-              
-              return (
-                <button
-                  key={seat.id}
-                  disabled={isOccupied}
-                  onClick={() => toggleSeat(seat.id)}
-                  title={seat.seat_number}
-                  className={`
-                    w-10 h-10 rounded-t-lg rounded-b-sm border transition-all duration-200 flex items-center justify-center text-xs font-medium
-                    ${isOccupied 
-                      ? 'bg-slate-800 border-slate-700 text-slate-600 cursor-not-allowed' 
-                      : isSelected 
-                        ? 'bg-rose-500 border-rose-400 text-white shadow-lg shadow-rose-500/30 transform scale-110' 
-                        : 'bg-slate-800/50 border-slate-600 text-slate-400 hover:border-rose-400 hover:bg-slate-800 hover:-translate-y-1'
-                    }
-                  `}
-                >
-                  {seat.seat_number.replace('S', '')}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Legend */}
-          <div className="flex justify-center gap-6 pt-6">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-t bg-slate-800/50 border border-slate-600"></div>
-              <span className="text-xs text-slate-400">Available</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-t bg-rose-500 border border-rose-400"></div>
-              <span className="text-xs text-slate-400">Selected</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-t bg-slate-800 border border-slate-700"></div>
-              <span className="text-xs text-slate-400">Occupied</span>
+    <BrowserRouter>
+      <div className="min-h-screen bg-[#141414] text-gray-300 font-sans selection:bg-[#E50914] selection:text-white">
+        <Toaster toastOptions={{ style: { background: '#333', color: '#fff' } }} />
+        
+        {/* Navbar */}
+        <nav className="flex items-center justify-between px-8 py-5 bg-black sticky top-0 z-50 shadow-md print:hidden">
+          <div className="flex items-center gap-8">
+            <Link to="/" className="text-[#E50914] text-3xl font-bold tracking-tighter uppercase">
+              Cineflix
+            </Link>
+            <div className="hidden md:flex gap-4 text-sm font-medium">
+              <Link to="/" className="text-white hover:text-gray-300 transition-colors">Home</Link>
+              <Link to="/tickets" className="hover:text-gray-300 transition-colors">My Tickets</Link>
             </div>
           </div>
-        </div>
-
-        {/* Right Section - Checkout */}
-        <div className="w-full md:w-80">
-          <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 sticky top-24 backdrop-blur-sm">
-            <h2 className="text-xl font-bold text-white mb-6">Booking Summary</h2>
-            
-            <div className="space-y-4 mb-6">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">Tickets ({selectedSeats.length})</span>
-                <span className="text-white font-medium">${(selectedSeats.length * (show ? parseFloat(show.price_per_seat) : 0)).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">Convenience Fee</span>
-                <span className="text-white font-medium">${(selectedSeats.length > 0 ? 2.50 : 0).toFixed(2)}</span>
-              </div>
-            </div>
-            
-            <div className="border-t border-slate-700 pt-4 mb-8">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-300 font-medium">Total</span>
-                <span className="text-2xl font-bold text-rose-400">
-                  ${selectedSeats.length > 0 ? ((selectedSeats.length * parseFloat(show.price_per_seat)) + 2.50).toFixed(2) : '0.00'}
-                </span>
-              </div>
-            </div>
-
-            <button 
-              onClick={handleBooking}
-              disabled={selectedSeats.length === 0}
-              className={`
-                w-full py-4 rounded-xl font-bold text-lg transition-all duration-300
-                ${selectedSeats.length > 0 
-                  ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-lg shadow-rose-500/25 hover:shadow-rose-500/40 transform hover:-translate-y-1' 
-                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                }
-              `}
-            >
-              Proceed to Pay
+          <div className="flex items-center gap-6 text-sm font-medium">
+            <span>{user.name}</span>
+            <button onClick={() => {
+              setUser(null);
+              toast('Signed out successfully', { icon: '👋' });
+            }} className="hover:text-white transition-colors cursor-pointer">
+              Sign out
             </button>
           </div>
-        </div>
-      </main>
-    </div>
-  )
+        </nav>
+
+        {/* Routes */}
+        <Routes>
+          <Route path="/" element={<Movies />} />
+          <Route path="/movie/:movieId/shows/:showId/seats" element={<SeatSelection user={user} />} />
+          <Route path="/checkout/:bookingId" element={<Checkout user={user} />} />
+          <Route path="/tickets" element={<MyTickets user={user} />} />
+          <Route path="/ticket/:bookingId" element={<Ticket user={user} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
+  );
 }
 
 export default App;
